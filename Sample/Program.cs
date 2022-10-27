@@ -33,6 +33,8 @@ class MyOptions
 
     public Dictionary<string, string> Values { get; set; }
     public List<MyClass> Values2 { get; set; }
+    public MyClass[] Values3 { get; set; }
+    public IEnumerable<MyClass> Values4 { get; set; }
 
     public MyClass MyProperty { get; set; }
 }

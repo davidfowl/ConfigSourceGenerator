@@ -13,12 +13,10 @@ namespace Configuration.SourceGenerator
         {
             IConfigurationType = metadataLoadContext.Resolve<IConfiguration>();
             IConfigurationSectionType = metadataLoadContext.Resolve<IConfigurationSection>();
-            ObjectType = metadataLoadContext.Resolve<object>();
         }
 
         public Type IConfigurationType { get; }
         public Type IConfigurationSectionType { get; }
-        public Type ObjectType { get; }
     }
 }
 

@@ -44,7 +44,7 @@ namespace Configuration.SourceGenerator
                 var mapMethodSymbol = semanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
 
                 if (mapMethodSymbol is { Parameters: { Length: 1 } parameters } &&
-                    wellKnownTypes.ObjectType.Equals(parameters[0].Type) &&
+                    parameters[0].Type.SpecialType == SpecialType.System_Object &&
                     wellKnownTypes.IConfigurationType.Equals(mapMethodSymbol.ReceiverType))
                 {
                     // We're looking for IConfiguration.Bind(object)
@@ -76,10 +76,11 @@ namespace Configuration.SourceGenerator
 
                 var configurationType = ResolveType(argumentSymbolInfo.Symbol)?.WithNullableAnnotation(NullableAnnotation.None);
 
-                if (configurationType is null || wellKnownTypes.ObjectType.Equals(configurationType) || configurationType.SpecialType == SpecialType.System_Void)
+                if (configurationType is null || configurationType.SpecialType == SpecialType.System_Object || configurationType.SpecialType == SpecialType.System_Void)
                 {
                     continue;
                 }
+
                 configTypes.Add(configurationType.AsType(metadataLoadContext));
             }
 
@@ -155,7 +156,7 @@ namespace Microsoft.Extensions.Configuration
         {
             foreach (var p in type.GetProperties())
             {
-                if (p.CanWrite)
+                if (p.CanWrite && p.SetMethod.IsPublic)
                 {
                     WriteValue($"value.{p.Name}", p.PropertyType, $@"""{p.Name}""", $"{p.Name}Temp", "configuration", wellKnownTypes, writer, dependentTypes);
                 }
@@ -188,10 +189,8 @@ namespace Microsoft.Extensions.Configuration
                 writer.WriteNoIndent(" = ");
                 writer.WriteLineNoIndent($@"Enum.TryParse<{type}>({configurationExpr}[{index}], true, out var {tempName}) ? {tempName} : default;");
             }
-            // TODO: Handle collection types (dictionaries, sets, lists)
-            else if (type.IsArray)
+            else if (IsArrayCompatibleInterface(type, out var elementType))
             {
-                var elementType = type.GetElementType();
                 writer.WriteLine("{");
                 writer.Indent();
                 writer.WriteLine($"var items = new List<{elementType}>();");
@@ -209,9 +208,8 @@ namespace Microsoft.Extensions.Configuration
                 else
                 {
                     writer.WriteLine($"{elementType} current = default;");
-                    WriteValue("current", elementType, "index.ToString()", "indexTemp", "item", wellKnownTypes, writer, dependentTypes);
+                    WriteValue("current", elementType, "item.Key", "indexTemp", "item", wellKnownTypes, writer, dependentTypes);
                     writer.WriteLine("items.Add(current);");
-                    writer.WriteLine("index++;");
                 }
                 writer.Unindent();
                 writer.WriteLine("}");
@@ -230,8 +228,8 @@ namespace Microsoft.Extensions.Configuration
             }
             else
             {
-                if (type.IsGenericType && 
-                    (type.GetGenericTypeDefinition().Equals(typeof(Dictionary<,>)) || 
+                if (type.IsGenericType &&
+                    (type.GetGenericTypeDefinition().Equals(typeof(Dictionary<,>)) ||
                      type.GetGenericTypeDefinition().Equals(typeof(List<>))))
                 {
                     writer.WriteLine($"// {type} is currently unsupported");
@@ -247,6 +245,35 @@ namespace Microsoft.Extensions.Configuration
                     dependentTypes.Enqueue(type);
                 }
             }
+        }
+
+        private static bool IsArrayCompatibleInterface(Type type, out Type elementType)
+        {
+            if (type.IsArray)
+            {
+                elementType = type.GetElementType();
+                return true;
+            }
+
+            if (!type.IsInterface || !type.IsConstructedGenericType)
+            {
+                elementType = null;
+                return false;
+            }
+
+            Type genericTypeDefinition = type.GetGenericTypeDefinition();
+            if (genericTypeDefinition.Equals(typeof(IEnumerable<>))
+                || genericTypeDefinition.Equals(typeof(ICollection<>))
+                || genericTypeDefinition.Equals(typeof(IList<>))
+                || genericTypeDefinition.Equals(typeof(IReadOnlyCollection<>))
+                || genericTypeDefinition.Equals(typeof(IReadOnlyList<>)))
+            {
+                elementType = type.GetGenericArguments()[0];
+                return true;
+            }
+
+            elementType = null;
+            return false;
         }
 
         private MethodInfo GetStaticMethodFromHierarchy(Type type, string name, Type[] parameterTypes)
@@ -282,9 +309,9 @@ namespace Microsoft.Extensions.Configuration
                             }
                         },
                         ArgumentList: { Arguments: { Count: 1 } args }
-                    } mapActionCall && KnownMethods.Contains(method))
+                    } call && KnownMethods.Contains(method))
                 {
-                    Calls.Add((mapActionCall, args[0].Expression));
+                    Calls.Add((call, args[0].Expression));
                 }
             }
         }

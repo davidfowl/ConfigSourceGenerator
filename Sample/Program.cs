@@ -4,8 +4,7 @@ using System.Security.Principal;
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 
-var option = new ConfigurationOptions();
-app.Configuration.Bind(option);
+app.Configuration.Bind(new ConfigurationOptions());
 
 var myOtherOptions = GetOptions();
 app.Configuration.Bind(myOtherOptions);

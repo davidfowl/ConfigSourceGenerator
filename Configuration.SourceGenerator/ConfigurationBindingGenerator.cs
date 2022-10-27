@@ -68,6 +68,7 @@ namespace Configuration.SourceGenerator
                         ITypeSymbol t => t,
                         IFieldSymbol f => f.Type,
                         ILocalSymbol l => l.Type,
+                        IMethodSymbol m when m.MethodKind == MethodKind.Constructor => m.ContainingType,
                         IMethodSymbol m => m.ReturnType,
                         _ => null
                     };
@@ -75,7 +76,7 @@ namespace Configuration.SourceGenerator
 
                 var configurationType = ResolveType(argumentSymbolInfo.Symbol)?.WithNullableAnnotation(NullableAnnotation.None);
 
-                if (configurationType is null || wellKnownTypes.ObjectType.Equals(configurationType))
+                if (configurationType is null || wellKnownTypes.ObjectType.Equals(configurationType) || configurationType.SpecialType == SpecialType.System_Void)
                 {
                     continue;
                 }

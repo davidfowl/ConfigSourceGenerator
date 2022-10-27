@@ -1,10 +1,11 @@
 ﻿using System;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text;
-using System.Linq;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 using SourceGenerator;
 
@@ -194,10 +195,6 @@ namespace Microsoft.Extensions.Configuration
                 writer.WriteLine("{");
                 writer.Indent();
                 writer.WriteLine($"var items = new List<{elementType}>();");
-                if (!elementType.Equals(typeof(string)))
-                {
-                    writer.WriteLine($"var index = 0;");
-                }
                 writer.WriteLine($@"foreach (var item in {configurationExpr}.GetSection({index}).GetChildren())");
                 writer.WriteLine("{");
                 writer.Indent();
@@ -220,7 +217,52 @@ namespace Microsoft.Extensions.Configuration
                 writer.Unindent();
                 writer.WriteLine("}");
             }
-            else if (GetStaticMethodFromHierarchy(type, "TryParse", new[] { typeof(string), type.MakeByRefType() }) != null)
+            else if (TypeIsADictionaryInterface(type, out var keyType, out var valueType))
+            {
+                var keyExpression = "item.Key";
+
+                if (keyType.IsEnum)
+                {
+                    keyExpression = $@"Enum.TryParse<{keyType}>({keyExpression}, true, out var key) ? key : throw new {typeof(InvalidDataException)}($""Unable to parse {{item.Key}}."")";
+                }
+                else if (IsTryParseable(keyType))
+                {
+                    keyExpression = $@"{keyType}.TryParse({keyExpression}, out var key) ? key : throw new {typeof(InvalidDataException)}($""Unable to parse {{item.Key}}."")";
+                }
+                else if (!keyType.Equals(typeof(string)))
+                {
+                    writer.WriteLine($"// {type} is not supported");
+                    writer.WriteLine($"{lhs} = default;");
+                    return;
+                }
+
+                writer.WriteLine("{");
+                writer.Indent();
+                writer.WriteLine($"var dict = new System.Collections.Generic.Dictionary<{keyType}, {valueType}>();");
+                writer.WriteLine($@"foreach (var item in {configurationExpr}.GetSection({index}).GetChildren())");
+                writer.WriteLine("{");
+                writer.Indent();
+
+                if (valueType.Equals(typeof(string)))
+                {
+                    writer.WriteLine($"dict.Add({keyExpression}, item.Value);");
+                }
+                else
+                {
+                    writer.WriteLine($"{valueType} current = default;");
+                    WriteValue("current", valueType, "item.Key", "indexTemp", "item", wellKnownTypes, writer, dependentTypes);
+                    writer.WriteLine($"dict.Add({keyExpression}, current);");
+                }
+                writer.Unindent();
+                writer.WriteLine("}");
+                writer.Write(lhs);
+                writer.WriteNoIndent(" = ");
+                writer.WriteLineNoIndent("dict;");
+
+                writer.Unindent();
+                writer.WriteLine("}");
+            }
+            else if (IsTryParseable(type))
             {
                 writer.Write(lhs);
                 writer.WriteNoIndent(" = ");
@@ -232,19 +274,24 @@ namespace Microsoft.Extensions.Configuration
                     (type.GetGenericTypeDefinition().Equals(typeof(Dictionary<,>)) ||
                      type.GetGenericTypeDefinition().Equals(typeof(List<>))))
                 {
-                    writer.WriteLine($"// {type} is currently unsupported");
+                    writer.WriteLine($"// {type} is not supported");
                     writer.WriteLine($"{lhs} = default;");
                 }
                 else
                 {
                     writer.WriteLine($"{lhs} ??= new();");
 
-                    writer.WriteLine($@"Bind({configurationExpr}.GetSection({index}), {lhs});");
+                    writer.WriteLine($@"BindCore({configurationExpr}.GetSection({index}), {lhs});");
 
                     // We need to generate a method for this type
                     dependentTypes.Enqueue(type);
                 }
             }
+        }
+
+        private bool IsTryParseable(Type type)
+        {
+            return GetStaticMethodFromHierarchy(type, "TryParse", new[] { typeof(string), type.MakeByRefType() }) != null;
         }
 
         private static bool IsArrayCompatibleInterface(Type type, out Type elementType)
@@ -272,6 +319,29 @@ namespace Microsoft.Extensions.Configuration
                 return true;
             }
 
+            elementType = null;
+            return false;
+        }
+
+        private static bool TypeIsADictionaryInterface(Type type, out Type keyType, out Type elementType)
+        {
+            if (!type.IsInterface || !type.IsConstructedGenericType)
+            {
+                keyType = null;
+                elementType = null;
+                return false;
+            }
+
+            Type genericTypeDefinition = type.GetGenericTypeDefinition();
+            if (genericTypeDefinition.Equals(typeof(IDictionary<,>)) ||
+                genericTypeDefinition.Equals(typeof(IReadOnlyDictionary<,>)))
+            {
+                var genericArgs = type.GetGenericArguments();
+                keyType = genericArgs[0];
+                elementType = genericArgs[1];
+                return true;
+            }
+            keyType = null;
             elementType = null;
             return false;
         }

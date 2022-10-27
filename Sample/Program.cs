@@ -23,7 +23,7 @@ class MyOptions
     public int B { get; set; }
     public string S { get; set; }
 
-    public int MyProperty1 { get;  }
+    public int MyProperty1 { get; }
 
     public DateTime MyProperty2 { get; set; }
 
@@ -35,6 +35,10 @@ class MyOptions
     public List<MyClass> Values2 { get; set; }
     public MyClass[] Values3 { get; set; }
     public IEnumerable<MyClass> Values4 { get; set; }
+
+    public IDictionary<int, MyClass> Values5 { get; set; }
+    public IDictionary<StoreName, MyClass> Values6 { get; set; }
+    public IDictionary<MyClass, MyClass> Values7 { get; set; }
 
     public MyClass MyProperty { get; set; }
 }

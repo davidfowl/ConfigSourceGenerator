@@ -7,26 +7,27 @@ namespace Microsoft.Extensions.Configuration
         {
             if (typeof(T) == typeof(ConfigurationOptions))
             {
-                Bind(configuration, (ConfigurationOptions)(object)value);
+                BindCore(configuration, (ConfigurationOptions)(object)value);
             }
             else if (typeof(T) == typeof(MyOptions))
             {
-                Bind(configuration, (MyOptions)(object)value);
+                BindCore(configuration, (MyOptions)(object)value);
             }
         }
 
-        static void Bind(Microsoft.Extensions.Configuration.IConfiguration configuration, ConfigurationOptions value)
+        static void BindCore(Microsoft.Extensions.Configuration.IConfiguration configuration, ConfigurationOptions value)
         {
             value.Data ??= new();
-            Bind(configuration.GetSection("Data"), value.Data);
+            BindCore(configuration.GetSection("Data"), value.Data);
             value.AzureAd ??= new();
-            Bind(configuration.GetSection("AzureAd"), value.AzureAd);
+            BindCore(configuration.GetSection("AzureAd"), value.AzureAd);
             value.Redis ??= new();
-            Bind(configuration.GetSection("Redis"), value.Redis);
+            BindCore(configuration.GetSection("Redis"), value.Redis);
             value.KeyVault ??= new();
-            Bind(configuration.GetSection("KeyVault"), value.KeyVault);
+            BindCore(configuration.GetSection("KeyVault"), value.KeyVault);
         }
-        static void Bind(Microsoft.Extensions.Configuration.IConfiguration configuration, MyOptions value)
+
+        static void BindCore(Microsoft.Extensions.Configuration.IConfiguration configuration, MyOptions value)
         {
             value.A = int.TryParse(configuration["A"], out var ATemp) ? ATemp : default;
             value.B = int.TryParse(configuration["B"], out var BTemp) ? BTemp : default;
@@ -34,18 +35,66 @@ namespace Microsoft.Extensions.Configuration
             value.MyProperty2 = System.DateTime.TryParse(configuration["MyProperty2"], out var MyProperty2Temp) ? MyProperty2Temp : default;
             value.Data = System.Convert.FromBase64String(configuration["Data"]);
             value.Section = configuration as Microsoft.Extensions.Configuration.IConfigurationSection;
-            // System.Collections.Generic.Dictionary<string, string> is currently unsupported
+            // System.Collections.Generic.Dictionary<string, string> is not supported
             value.Values = default;
-            // System.Collections.Generic.List<MyClass> is currently unsupported
+            // System.Collections.Generic.List<MyClass> is not supported
             value.Values2 = default;
+            {
+                var items = new List<MyClass>();
+                foreach (var item in configuration.GetSection("Values3").GetChildren())
+                {
+                    MyClass current = default;
+                    current ??= new();
+                    BindCore(item.GetSection(item.Key), current);
+                    items.Add(current);
+                }
+                value.Values3 = items.ToArray();
+            }
+            {
+                var items = new List<MyClass>();
+                foreach (var item in configuration.GetSection("Values4").GetChildren())
+                {
+                    MyClass current = default;
+                    current ??= new();
+                    BindCore(item.GetSection(item.Key), current);
+                    items.Add(current);
+                }
+                value.Values4 = items.ToArray();
+            }
+            {
+                var dict = new System.Collections.Generic.Dictionary<int, MyClass>();
+                foreach (var item in configuration.GetSection("Values5").GetChildren())
+                {
+                    MyClass current = default;
+                    current ??= new();
+                    BindCore(item.GetSection(item.Key), current);
+                    dict.Add(int.TryParse(item.Key, out var key) ? key : throw new System.IO.InvalidDataException($"Unable to parse {item.Key}."), current);
+                }
+                value.Values5 = dict;
+            }
+            {
+                var dict = new System.Collections.Generic.Dictionary<System.Security.Cryptography.X509Certificates.StoreName, MyClass>();
+                foreach (var item in configuration.GetSection("Values6").GetChildren())
+                {
+                    MyClass current = default;
+                    current ??= new();
+                    BindCore(item.GetSection(item.Key), current);
+                    dict.Add(Enum.TryParse<System.Security.Cryptography.X509Certificates.StoreName>(item.Key, true, out var key) ? key : throw new System.IO.InvalidDataException($"Unable to parse {item.Key}."), current);
+                }
+                value.Values6 = dict;
+            }
+            // System.Collections.Generic.IDictionary<MyClass, MyClass> is not supported
+            value.Values7 = default;
             value.MyProperty ??= new();
-            Bind(configuration.GetSection("MyProperty"), value.MyProperty);
+            BindCore(configuration.GetSection("MyProperty"), value.MyProperty);
         }
-        static void Bind(Microsoft.Extensions.Configuration.IConfiguration configuration, DatabaseOptions value)
+
+        static void BindCore(Microsoft.Extensions.Configuration.IConfiguration configuration, DatabaseOptions value)
         {
             value.SurveysConnectionString = configuration["SurveysConnectionString"];
         }
-        static void Bind(Microsoft.Extensions.Configuration.IConfiguration configuration, AzureAdOptions value)
+
+        static void BindCore(Microsoft.Extensions.Configuration.IConfiguration configuration, AzureAdOptions value)
         {
             {
                 var items = new List<string>();
@@ -59,21 +108,25 @@ namespace Microsoft.Extensions.Configuration
             value.PostLogoutRedirectUri = configuration["PostLogoutRedirectUri"];
             value.WebApiResourceId = configuration["WebApiResourceId"];
             value.Asymmetric ??= new();
-            Bind(configuration.GetSection("Asymmetric"), value.Asymmetric);
+            BindCore(configuration.GetSection("Asymmetric"), value.Asymmetric);
         }
-        static void Bind(Microsoft.Extensions.Configuration.IConfiguration configuration, RedisOptions value)
+
+        static void BindCore(Microsoft.Extensions.Configuration.IConfiguration configuration, RedisOptions value)
         {
             value.Configuration = configuration["Configuration"];
         }
-        static void Bind(Microsoft.Extensions.Configuration.IConfiguration configuration, KeyVaultOptions value)
+
+        static void BindCore(Microsoft.Extensions.Configuration.IConfiguration configuration, KeyVaultOptions value)
         {
             value.Name = configuration["Name"];
         }
-        static void Bind(Microsoft.Extensions.Configuration.IConfiguration configuration, MyClass value)
+
+        static void BindCore(Microsoft.Extensions.Configuration.IConfiguration configuration, MyClass value)
         {
             value.SomethingElse = int.TryParse(configuration["SomethingElse"], out var SomethingElseTemp) ? SomethingElseTemp : default;
         }
-        static void Bind(Microsoft.Extensions.Configuration.IConfiguration configuration, AsymmetricEncryptionOptions value)
+
+        static void BindCore(Microsoft.Extensions.Configuration.IConfiguration configuration, AsymmetricEncryptionOptions value)
         {
             value.CertificateThumbprint = configuration["CertificateThumbprint"];
             value.StoreName = Enum.TryParse<System.Security.Cryptography.X509Certificates.StoreName>(configuration["StoreName"], true, out var StoreNameTemp) ? StoreNameTemp : default;

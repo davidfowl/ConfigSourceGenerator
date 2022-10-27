@@ -84,31 +84,33 @@ namespace Configuration.SourceGenerator
             }
 
             var sb = new StringBuilder();
+            var writer = new CodeWriter(sb);
+            writer.Indent();
+            writer.Indent();
 
             // Bind method
-            sb.Append(@$"    public static void Bind<T>(this {wellKnownTypes.IConfigurationType} configuration, T value)
-        {{
-");
+            writer.WriteLine(@$"public static void Bind<T>(this {wellKnownTypes.IConfigurationType} configuration, T value)");
+            writer.WriteLine("{");
+            writer.Indent();
 
             var i = 0;
             foreach (var c in configTypes)
             {
-                sb.Append(@$"            {(i > 0 ? "else " : "")}if (typeof(T) == typeof({c}))
-            {{
-                Bind(configuration, ({c})(object)value);
-            }}
-");
+                writer.WriteLine(@$"{(i > 0 ? "else " : "")}if (typeof(T) == typeof({c}))");
+                writer.WriteLine("{");
+                writer.Indent();
+                writer.WriteLine(@$"BindCore(configuration, ({c})(object)value);");
+                writer.Unindent();
+                writer.WriteLine("}");
                 i++;
             }
 
-            sb.AppendLine("        }");
-            sb.AppendLine();
+            writer.Unindent();
+            writer.WriteLine("}");
+            writer.WriteLineNoIndent("");
 
             var generatedTypes = new HashSet<Type>();
 
-            var writer = new CodeWriter(sb);
-            writer.Indent();
-            writer.Indent();
             var q = new Queue<Type>();
 
             foreach (var type in configTypes)
@@ -125,12 +127,13 @@ namespace Configuration.SourceGenerator
                     continue;
                 }
 
-                writer.WriteLine($@"static void Bind({wellKnownTypes.IConfigurationType} configuration, {type} value)");
+                writer.WriteLine($@"static void BindCore({wellKnownTypes.IConfigurationType} configuration, {type} value)");
                 writer.WriteLine("{");
                 writer.Indent();
                 GenerateConfigurationBind(wellKnownTypes, writer, type, q);
                 writer.Unindent();
                 writer.WriteLine("}");
+                writer.WriteLineNoIndent("");
             }
 
             if (sb.Length > 0)
@@ -140,7 +143,7 @@ namespace Microsoft.Extensions.Configuration
 {{
     public static class GeneratedConfigurationBinder
     {{
-    {writer.ToString().TrimEnd()}
+{writer.ToString().TrimEnd()}
     }}
 }}";
 

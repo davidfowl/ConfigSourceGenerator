@@ -194,7 +194,7 @@ namespace Microsoft.Extensions.Configuration
             {
                 writer.WriteLine("{");
                 writer.Indent();
-                writer.WriteLine($"var items = new List<{elementType}>();");
+                writer.WriteLine($"var items = new System.Collections.Generic.List<{elementType}>();");
                 writer.WriteLine($@"foreach (var item in {configurationExpr}.GetSection({index}).GetChildren())");
                 writer.WriteLine("{");
                 writer.Indent();

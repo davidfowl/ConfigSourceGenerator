@@ -59,28 +59,27 @@ namespace Configuration.SourceGenerator
             writer.Indent();
             writer.Indent();
 
-            // TODO: Figure this out
-            //var i = 0;
-            //foreach (var c in configTypes)
-            //{
-            //    // Configure method
-            //    writer.WriteLine(@$"public static {wellKnownTypes.IServiceCollectionType} Configure<T>(this {wellKnownTypes.IServiceCollectionType} services, {wellKnownTypes.IConfigurationSectionType} configuration)");
-            //    writer.WriteLine("{");
-            //    writer.Indent();
+            writer.WriteLine(@$"public static {wellKnownTypes.IServiceCollectionType} ConfigureAot<T>(this {wellKnownTypes.IServiceCollectionType} services, {wellKnownTypes.IConfigurationSectionType} configuration)");
+            writer.WriteLine("{");
+            writer.Indent();
 
-            //    writer.WriteLine(@$"{(i > 0 ? "else " : "")}if (typeof(T) == typeof({c}))");
-            //    writer.WriteLine("{");
-            //    writer.Indent();
-            //    writer.WriteLine(@$"services.Configure<{c}>(o => BindCore(configuration, o));");
-            //    writer.Unindent();
-            //    writer.WriteLine("}");
+            var i = 0;
+            foreach (var c in configTypes)
+            {
+                // Configure method
+                writer.WriteLine(@$"{(i > 0 ? "else " : "")}if (typeof(T) == typeof({c}))");
+                writer.WriteLine("{");
+                writer.Indent();
+                writer.WriteLine(@$"services.Configure<{c}>(o => BindCore(configuration, o));");
+                writer.Unindent();
+                writer.WriteLine("}");
+                i++;
+            }
 
-            //    writer.WriteLine(@$"return services;");
-            //    writer.Unindent();
-            //    writer.WriteLine("}");
-            //    i++;
-            //}
-            //writer.WriteLineNoIndent("");
+            writer.WriteLine(@$"return services;");
+            writer.Unindent();
+            writer.WriteLine("}");
+            writer.WriteLineNoIndent("");
 
             // Bind method
             foreach (var c in configTypes)

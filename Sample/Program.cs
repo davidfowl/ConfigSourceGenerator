@@ -3,9 +3,9 @@ using System.Security.Principal;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var app = builder.Build();
+builder.Services.ConfigureAot<MyOptions>(builder.Configuration.GetSection("MyOptions"));
 
-app.Configuration.Bind(new ConfigurationOptions());
+var app = builder.Build();
 
 app.MapGet("/", () => "Hello World!");
 
@@ -43,6 +43,7 @@ public class MyClass
     public int SomethingElse { get; set; }
 }
 
+[GenerateBinder]
 public class ConfigurationOptions
 {
     public ConfigurationOptions()

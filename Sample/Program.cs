@@ -2,16 +2,13 @@ using System.Security.Cryptography.X509Certificates;
 using System.Security.Principal;
 
 var builder = WebApplication.CreateBuilder(args);
+
 var app = builder.Build();
 
 app.Configuration.Bind(new ConfigurationOptions());
 
-var myOtherOptions = GetOptions();
+var myOtherOptions = new MyOptions();
 app.Configuration.Bind(myOtherOptions);
-MyOptions GetOptions()
-{
-    throw new NotImplementedException();
-}
 
 app.MapGet("/", () => "Hello World!");
 

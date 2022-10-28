@@ -36,59 +36,39 @@ namespace Configuration.SourceGenerator
             var metadataLoadContext = new MetadataLoadContext(context.Compilation);
             var wellKnownTypes = new WellKnownTypes(metadataLoadContext);
 
-            var configTypes = new List<Type>();
+            var configTypes = new HashSet<Type>();
 
-            foreach (var (invocation, argument) in receiver.Calls)
-            {
-                var semanticModel = context.Compilation.GetSemanticModel(invocation.SyntaxTree);
+            ProcessBindCalls(context, receiver, metadataLoadContext, wellKnownTypes, configTypes);
 
-                var mapMethodSymbol = semanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
-
-                if (mapMethodSymbol is { Parameters: { Length: 1 } parameters } &&
-                    parameters[0].Type.SpecialType == SpecialType.System_Object &&
-                    wellKnownTypes.IConfigurationType.Equals(mapMethodSymbol.ReceiverType))
-                {
-                    // We're looking for IConfiguration.Bind(object)
-                }
-                else
-                {
-                    continue;
-                }
-
-                var argumentSymbolInfo = semanticModel.GetSymbolInfo(argument);
-
-                if (argumentSymbolInfo.Symbol is null)
-                {
-                    continue;
-                }
-
-                static ITypeSymbol ResolveType(ISymbol s)
-                {
-                    return s switch
-                    {
-                        ITypeSymbol t => t,
-                        IFieldSymbol f => f.Type,
-                        ILocalSymbol l => l.Type,
-                        IMethodSymbol m when m.MethodKind == MethodKind.Constructor => m.ContainingType,
-                        IMethodSymbol m => m.ReturnType,
-                        _ => null
-                    };
-                }
-
-                var configurationType = ResolveType(argumentSymbolInfo.Symbol)?.WithNullableAnnotation(NullableAnnotation.None);
-
-                if (configurationType is null || configurationType.SpecialType == SpecialType.System_Object || configurationType.SpecialType == SpecialType.System_Void)
-                {
-                    continue;
-                }
-
-                configTypes.Add(configurationType.AsType(metadataLoadContext));
-            }
+            // ProcessConfigureCalls(context, receiver, metadataLoadContext, wellKnownTypes, configTypes);
 
             var sb = new StringBuilder();
             var writer = new CodeWriter(sb);
             writer.Indent();
             writer.Indent();
+
+            // TODO: Figure this out
+            //var i = 0;
+            //foreach (var c in configTypes)
+            //{
+            //    // Configure method
+            //    writer.WriteLine(@$"public static {wellKnownTypes.IServiceCollectionType} Configure<T>(this {wellKnownTypes.IServiceCollectionType} services, {wellKnownTypes.IConfigurationSectionType} configuration)");
+            //    writer.WriteLine("{");
+            //    writer.Indent();
+
+            //    writer.WriteLine(@$"{(i > 0 ? "else " : "")}if (typeof(T) == typeof({c}))");
+            //    writer.WriteLine("{");
+            //    writer.Indent();
+            //    writer.WriteLine(@$"services.Configure<{c}>(o => BindCore(configuration, o));");
+            //    writer.Unindent();
+            //    writer.WriteLine("}");
+
+            //    writer.WriteLine(@$"return services;");
+            //    writer.Unindent();
+            //    writer.WriteLine("}");
+            //    i++;
+            //}
+            //writer.WriteLineNoIndent("");
 
             // Bind method
             writer.WriteLine(@$"public static void Bind<T>(this {wellKnownTypes.IConfigurationType} configuration, T value)");
@@ -152,6 +132,86 @@ namespace Microsoft.Extensions.Configuration
                 context.AddSource($"GeneratedConfigurationBinder.g", SourceText.From(text, Encoding.UTF8));
             }
         }
+
+        private static void ProcessBindCalls(GeneratorExecutionContext context, SyntaxReceiver receiver, MetadataLoadContext metadataLoadContext, WellKnownTypes wellKnownTypes, HashSet<Type> configTypes)
+        {
+            foreach (var (invocation, argument) in receiver.BindCalls)
+            {
+                var semanticModel = context.Compilation.GetSemanticModel(invocation.SyntaxTree);
+
+                var method = semanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+
+                if (method is { Parameters: { Length: 1 } parameters } &&
+                    parameters[0].Type.SpecialType == SpecialType.System_Object &&
+                    wellKnownTypes.IConfigurationType.Equals(method.ReceiverType))
+                {
+                    // We're looking for IConfiguration.Bind(object)
+                }
+                else
+                {
+                    continue;
+                }
+
+                var argumentSymbolInfo = semanticModel.GetSymbolInfo(argument);
+
+                if (argumentSymbolInfo.Symbol is null)
+                {
+                    continue;
+                }
+
+                static ITypeSymbol ResolveType(ISymbol s)
+                {
+                    return s switch
+                    {
+                        ITypeSymbol t => t,
+                        IFieldSymbol f => f.Type,
+                        ILocalSymbol l => l.Type,
+                        IMethodSymbol m when m.MethodKind == MethodKind.Constructor => m.ContainingType,
+                        IMethodSymbol m => m.ReturnType,
+                        _ => null
+                    };
+                }
+
+                var configurationType = ResolveType(argumentSymbolInfo.Symbol)?.WithNullableAnnotation(NullableAnnotation.None);
+
+                if (configurationType is null || configurationType.SpecialType == SpecialType.System_Object || configurationType.SpecialType == SpecialType.System_Void)
+                {
+                    continue;
+                }
+
+                configTypes.Add(configurationType.AsType(metadataLoadContext));
+            }
+        }
+
+        //private static void ProcessConfigureCalls(GeneratorExecutionContext context, SyntaxReceiver receiver, MetadataLoadContext metadataLoadContext, WellKnownTypes wellKnownTypes, HashSet<Type> configTypes)
+        //{
+        //    foreach (var (invocation, argument) in receiver.ConfigureCalls)
+        //    {
+        //        var semanticModel = context.Compilation.GetSemanticModel(invocation.SyntaxTree);
+
+        //        var method = semanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+
+        //        if (method is { IsGenericMethod: true, Parameters: { Length: 1 } parameters } &&
+        //            wellKnownTypes.IConfigurationType.Equals(parameters[0].Type) &&
+        //            wellKnownTypes.IServiceCollectionType.Equals(method.ReceiverType))
+        //        {
+        //            // We're looking for IServiceCollection.Configure<T>(IConfiguration)
+        //        }
+        //        else
+        //        {
+        //            continue;
+        //        }
+
+        //        var configurationType = method.TypeArguments[0].WithNullableAnnotation(NullableAnnotation.None);
+
+        //        if (configurationType is null || configurationType.SpecialType == SpecialType.System_Object)
+        //        {
+        //            continue;
+        //        }
+
+        //        configTypes.Add(configurationType.AsType(metadataLoadContext));
+        //    }
+        //}
 
         private void GenerateConfigurationBind(WellKnownTypes wellKnownTypes, CodeWriter writer, Type type, Queue<Type> dependentTypes)
         {
@@ -360,12 +420,8 @@ namespace Microsoft.Extensions.Configuration
 
         private class SyntaxReceiver : ISyntaxReceiver
         {
-            private static readonly string[] KnownMethods = new[]
-            {
-                "Bind",
-            };
-
-            public List<(InvocationExpressionSyntax, ExpressionSyntax)> Calls { get; } = new();
+            public List<(InvocationExpressionSyntax, ExpressionSyntax)> BindCalls { get; } = new();
+            public List<(InvocationExpressionSyntax, ExpressionSyntax)> ConfigureCalls { get; } = new();
 
             public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
             {
@@ -375,13 +431,28 @@ namespace Microsoft.Extensions.Configuration
                         {
                             Name: IdentifierNameSyntax
                             {
-                                Identifier: { ValueText: var method }
+                                Identifier: { ValueText: var bindMethod }
                             }
                         },
-                        ArgumentList: { Arguments: { Count: 1 } args }
-                    } call && KnownMethods.Contains(method))
+                        ArgumentList: { Arguments: { Count: 1 } bindArgs }
+                    } bindCall && bindMethod == "Bind")
                 {
-                    Calls.Add((call, args[0].Expression));
+                    BindCalls.Add((bindCall, bindArgs[0].Expression));
+                }
+
+                if (syntaxNode is InvocationExpressionSyntax
+                    {
+                        Expression: MemberAccessExpressionSyntax
+                        {
+                            Name: GenericNameSyntax
+                            {
+                                Identifier: { ValueText: var configureMethod }
+                            }
+                        },
+                        ArgumentList: { Arguments: { Count: 1 } configureArgs }
+                    } configureCall && configureMethod == "Configure")
+                {
+                    ConfigureCalls.Add((configureCall, configureArgs[0].Expression));
                 }
             }
         }

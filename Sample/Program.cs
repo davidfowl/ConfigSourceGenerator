@@ -14,6 +14,7 @@ app.MapGet("/", () => "Hello World!");
 
 app.Run();
 
+[GenerateBinder]
 class MyOptions
 {
     public int A { get; set; }

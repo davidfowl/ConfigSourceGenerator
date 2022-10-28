@@ -4,12 +4,12 @@ using Microsoft.CodeAnalysis;
 
 namespace System.Reflection
 {
-    internal class ConstructorInfoWrapper : ConstructorInfo
+    internal class RoslynConstructorInfo : ConstructorInfo
     {
         private readonly IMethodSymbol _ctor;
         private readonly MetadataLoadContext _metadataLoadContext;
 
-        public ConstructorInfoWrapper(IMethodSymbol ctor, MetadataLoadContext metadataLoadContext)
+        public RoslynConstructorInfo(IMethodSymbol ctor, MetadataLoadContext metadataLoadContext)
         {
             _ctor = ctor;
             _metadataLoadContext = metadataLoadContext;
@@ -42,7 +42,7 @@ namespace System.Reflection
             var attributes = new List<CustomAttributeData>();
             foreach (var a in _ctor.GetAttributes())
             {
-                attributes.Add(new CustomAttributeDataWrapper(a, _metadataLoadContext));
+                attributes.Add(new RoslynCustomAttributeData(a, _metadataLoadContext));
             }
             return attributes;
         }
@@ -67,7 +67,7 @@ namespace System.Reflection
             var parameters = new List<ParameterInfo>();
             foreach (var p in _ctor.Parameters)
             {
-                parameters.Add(new ParameterWrapper(p, _metadataLoadContext));
+                parameters.Add(new RoslynParameterInfo(p, _metadataLoadContext));
             }
             return parameters.ToArray();
         }

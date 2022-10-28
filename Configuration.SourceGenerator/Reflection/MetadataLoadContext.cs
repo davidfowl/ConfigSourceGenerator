@@ -11,14 +11,18 @@ namespace System.Reflection
             _compilation = compilation;
         }
 
-        public Type Resolve(string fullyQualifiedMetadataName)
+        public Assembly Assembly => _compilation.Assembly.AsAssembly(this);
+
+        internal Compilation Compilation => _compilation;
+
+        public Type ResolveType(string fullyQualifiedMetadataName)
         {
             return _compilation.GetTypeByMetadataName(fullyQualifiedMetadataName)?.AsType(this);
         }
 
-        public Type Resolve<T>() => Resolve(typeof(T));
+        public Type ResolveType<T>() => ResolveType(typeof(T));
 
-        public Type Resolve(Type type)
+        public Type ResolveType(Type type)
         {
             var resolvedType = _compilation.GetTypeByMetadataName(type.FullName);
 

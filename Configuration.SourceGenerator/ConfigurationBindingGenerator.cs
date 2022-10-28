@@ -27,10 +27,10 @@ namespace Configuration.SourceGenerator
                 System.Diagnostics.Debugger.Launch();
             }
 
-            //while (!System.Diagnostics.Debugger.IsAttached)
-            //{
-            //    System.Threading.Thread.Sleep(1000);
-            //}
+            while (!System.Diagnostics.Debugger.IsAttached)
+            {
+                System.Threading.Thread.Sleep(1000);
+            }
             // System.Diagnostics.Debugger.Launch();
 
             var metadataLoadContext = new MetadataLoadContext(context.Compilation);
@@ -41,6 +41,18 @@ namespace Configuration.SourceGenerator
             ProcessBindCalls(context, receiver, metadataLoadContext, wellKnownTypes, configTypes);
 
             // ProcessConfigureCalls(context, receiver, metadataLoadContext, wellKnownTypes, configTypes);
+
+            if (wellKnownTypes.GenerateBinderAttributeType is { } attribute)
+            {
+                foreach (var t in metadataLoadContext.Assembly.GetTypes())
+                {
+                    // Looks for types with an attribute
+                    if (t.CustomAttributes.Any(a => attribute.IsAssignableFrom(a.AttributeType)))
+                    {
+                        configTypes.Add(t);
+                    }
+                }
+            }
 
             var sb = new StringBuilder();
             var writer = new CodeWriter(sb);
@@ -431,11 +443,11 @@ namespace Microsoft.Extensions.Configuration
                         {
                             Name: IdentifierNameSyntax
                             {
-                                Identifier: { ValueText: var bindMethod }
+                                Identifier: { ValueText: "Bind" }
                             }
                         },
                         ArgumentList: { Arguments: { Count: 1 } bindArgs }
-                    } bindCall && bindMethod == "Bind")
+                    } bindCall)
                 {
                     BindCalls.Add((bindCall, bindArgs[0].Expression));
                 }
@@ -446,11 +458,11 @@ namespace Microsoft.Extensions.Configuration
                         {
                             Name: GenericNameSyntax
                             {
-                                Identifier: { ValueText: var configureMethod }
+                                Identifier: { ValueText: "Configure" }
                             }
                         },
                         ArgumentList: { Arguments: { Count: 1 } configureArgs }
-                    } configureCall && configureMethod == "Configure")
+                    } configureCall)
                 {
                     ConfigureCalls.Add((configureCall, configureArgs[0].Expression));
                 }

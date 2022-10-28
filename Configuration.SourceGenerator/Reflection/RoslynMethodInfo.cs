@@ -5,19 +5,19 @@ using Microsoft.CodeAnalysis;
 
 namespace System.Reflection
 {
-    internal class MethodInfoWrapper : MethodInfo
+    internal class RoslynMethodInfo : MethodInfo
     {
         private readonly IMethodSymbol _method;
         private readonly MetadataLoadContext _metadataLoadContext;
 
-        public MethodInfoWrapper(IMethodSymbol method, MetadataLoadContext metadataLoadContext)
+        public RoslynMethodInfo(IMethodSymbol method, MetadataLoadContext metadataLoadContext)
         {
             _method = method;
             _metadataLoadContext = metadataLoadContext;
 
-            if ((method.DeclaredAccessibility & Accessibility.Public) != 0)
+            if (method.IsAbstract)
             {
-                Attributes |= MethodAttributes.Public;
+                Attributes |= MethodAttributes.Abstract | MethodAttributes.Virtual;
             }
 
             if (method.IsStatic)
@@ -25,9 +25,22 @@ namespace System.Reflection
                 Attributes |= MethodAttributes.Static;
             }
 
-            if (method.IsAbstract)
+            if (method.IsVirtual || method.IsOverride)
             {
-                Attributes |= MethodAttributes.Abstract;
+                Attributes |= MethodAttributes.Virtual;
+            }
+
+            switch (method.DeclaredAccessibility)
+            {
+                case Accessibility.Public:
+                    Attributes |= MethodAttributes.Public;
+                    break;
+                case Accessibility.Private:
+                    Attributes |= MethodAttributes.Private;
+                    break;
+                case Accessibility.Internal:
+                    Attributes |= MethodAttributes.Assembly;
+                    break;
             }
         }
 
@@ -54,7 +67,7 @@ namespace System.Reflection
             var attributes = new List<CustomAttributeData>();
             foreach (var a in _method.GetAttributes())
             {
-                attributes.Add(new CustomAttributeDataWrapper(a, _metadataLoadContext));
+                attributes.Add(new RoslynCustomAttributeData(a, _metadataLoadContext));
             }
             return attributes;
         }
@@ -94,7 +107,7 @@ namespace System.Reflection
             var parameters = new List<ParameterInfo>();
             foreach (var p in _method.Parameters)
             {
-                parameters.Add(new ParameterWrapper(p, _metadataLoadContext));
+                parameters.Add(new RoslynParameterInfo(p, _metadataLoadContext));
             }
             return parameters.ToArray();
         }

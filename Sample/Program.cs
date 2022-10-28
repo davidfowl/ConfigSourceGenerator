@@ -3,7 +3,7 @@ using System.Security.Principal;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.ConfigureAot<MyOptions>(builder.Configuration.GetSection("MyOptions"));
+builder.Services.Configure<MyOptions>(builder.Configuration.GetSection("MyOptions"));
 
 var app = builder.Build();
 

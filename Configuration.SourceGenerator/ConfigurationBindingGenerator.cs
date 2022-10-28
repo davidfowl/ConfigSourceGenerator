@@ -56,38 +56,65 @@ namespace Configuration.SourceGenerator
 
             var sb = new StringBuilder();
             var writer = new CodeWriter(sb);
-            writer.Indent();
-            writer.Indent();
 
-            writer.WriteLine(@$"public static {wellKnownTypes.IServiceCollectionType} ConfigureAot<T>(this {wellKnownTypes.IServiceCollectionType} services, {wellKnownTypes.IConfigurationSectionType} configuration)");
+            writer.WriteLine("namespace Microsoft.Extensions.Configuration");
             writer.WriteLine("{");
             writer.Indent();
+
+            //writer.WriteLine(@$"public static {wellKnownTypes.IServiceCollectionType} ConfigureAot<T>(this {wellKnownTypes.IServiceCollectionType} services, {wellKnownTypes.IConfigurationSectionType} configuration)");
+            //writer.WriteLine("{");
+            //writer.Indent();
+
+            //var i = 0;
+            //foreach (var c in configTypes)
+            //{
+            //    // Configure method
+            //    writer.WriteLine(@$"{(i > 0 ? "else " : "")}if (typeof(T) == typeof({c}))");
+            //    writer.WriteLine("{");
+            //    writer.Indent();
+            //    writer.WriteLine(@$"services.Configure<{c}>(o => BindCore(configuration, o));");
+            //    writer.Unindent();
+            //    writer.WriteLine("}");
+            //    i++;
+            //}
+
+            //writer.WriteLine(@$"return services;");
+            //writer.Unindent();
+            //writer.WriteLine("}");
+            //writer.WriteLineNoIndent("");
 
             var i = 0;
             foreach (var c in configTypes)
             {
-                // Configure method
-                writer.WriteLine(@$"{(i > 0 ? "else " : "")}if (typeof(T) == typeof({c}))");
+                writer.WriteLine($"public static class ConfigurationBindingExtensions{i}");
                 writer.WriteLine("{");
                 writer.Indent();
-                writer.WriteLine(@$"services.Configure<{c}>(o => BindCore(configuration, o));");
+
+                // Configure method
+                writer.WriteLine(@$"internal static {wellKnownTypes.IServiceCollectionType} Configure<T>(this {wellKnownTypes.IServiceCollectionType} services, {wellKnownTypes.IConfigurationSectionType} configuration) where T : {c}");
+                writer.WriteLine("{");
+                writer.Indent();
+                writer.WriteLine(@$"return services.Configure<{c}>(o => GeneratedConfigurationBinder.Bind(configuration, o));");
+                writer.Unindent();
+                writer.WriteLine("}");
+
                 writer.Unindent();
                 writer.WriteLine("}");
                 i++;
             }
 
-            writer.WriteLine(@$"return services;");
-            writer.Unindent();
-            writer.WriteLine("}");
             writer.WriteLineNoIndent("");
 
-            // Bind method
+            writer.WriteLine($"public static class GeneratedConfigurationBinder");
+            writer.WriteLine("{");
+            writer.Indent();
+            // Bind methods
             foreach (var c in configTypes)
             {
                 writer.WriteLine(@$"internal static void Bind(this {wellKnownTypes.IConfigurationType} configuration, {c} value) => BindCore(configuration, value);");
                 writer.WriteLineNoIndent("");
             }
-
+            
             var generatedTypes = new HashSet<Type>();
 
             var q = new Queue<Type>();
@@ -115,16 +142,15 @@ namespace Configuration.SourceGenerator
                 writer.WriteLineNoIndent("");
             }
 
+            writer.Unindent();
+            writer.WriteLine("}");
+
+            writer.Unindent();
+            writer.WriteLine("}");
+
             if (sb.Length > 0)
             {
-                var text = $@"
-namespace Microsoft.Extensions.Configuration
-{{
-    public static class GeneratedConfigurationBinder
-    {{
-{writer.ToString().TrimEnd()}
-    }}
-}}";
+                var text = writer.ToString();
 
                 context.AddSource($"GeneratedConfigurationBinder.g", SourceText.From(text, Encoding.UTF8));
             }

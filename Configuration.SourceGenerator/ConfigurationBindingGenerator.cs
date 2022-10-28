@@ -83,25 +83,11 @@ namespace Configuration.SourceGenerator
             //writer.WriteLineNoIndent("");
 
             // Bind method
-            writer.WriteLine(@$"public static void Bind<T>(this {wellKnownTypes.IConfigurationType} configuration, T value)");
-            writer.WriteLine("{");
-            writer.Indent();
-
-            var i = 0;
             foreach (var c in configTypes)
             {
-                writer.WriteLine(@$"{(i > 0 ? "else " : "")}if (typeof(T) == typeof({c}))");
-                writer.WriteLine("{");
-                writer.Indent();
-                writer.WriteLine(@$"BindCore(configuration, ({c})(object)value);");
-                writer.Unindent();
-                writer.WriteLine("}");
-                i++;
+                writer.WriteLine(@$"internal static void Bind(this {wellKnownTypes.IConfigurationType} configuration, {c} value) => BindCore(configuration, value);");
+                writer.WriteLineNoIndent("");
             }
-
-            writer.Unindent();
-            writer.WriteLine("}");
-            writer.WriteLineNoIndent("");
 
             var generatedTypes = new HashSet<Type>();
 

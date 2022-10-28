@@ -27,10 +27,10 @@ namespace Configuration.SourceGenerator
                 System.Diagnostics.Debugger.Launch();
             }
 
-            while (!System.Diagnostics.Debugger.IsAttached)
-            {
-                System.Threading.Thread.Sleep(1000);
-            }
+            //while (!System.Diagnostics.Debugger.IsAttached)
+            //{
+            //    System.Threading.Thread.Sleep(1000);
+            //}
             // System.Diagnostics.Debugger.Launch();
 
             var metadataLoadContext = new MetadataLoadContext(context.Compilation);

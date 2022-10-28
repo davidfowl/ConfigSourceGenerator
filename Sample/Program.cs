@@ -7,9 +7,6 @@ var app = builder.Build();
 
 app.Configuration.Bind(new ConfigurationOptions());
 
-var myOtherOptions = new MyOptions();
-app.Configuration.Bind(myOtherOptions);
-
 app.MapGet("/", () => "Hello World!");
 
 app.Run();

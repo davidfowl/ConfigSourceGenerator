@@ -91,7 +91,7 @@ namespace Configuration.SourceGenerator
                 writer.Indent();
 
                 // Configure method
-                writer.WriteLine(@$"internal static {wellKnownTypes.IServiceCollectionType} Configure<T>(this {wellKnownTypes.IServiceCollectionType} services, {wellKnownTypes.IConfigurationType} configuration) where T : {c}");
+                writer.WriteLine(@$"internal static {wellKnownTypes.IServiceCollectionType} Configure<T>(this {wellKnownTypes.IServiceCollectionType} services, {wellKnownTypes.IConfigurationSectionType} configuration) where T : {c}");
                 writer.WriteLine("{");
                 writer.Indent();
                 writer.WriteLine(@$"return services.Configure<{c}>(o => GeneratedConfigurationBinder.Bind(configuration, o));");

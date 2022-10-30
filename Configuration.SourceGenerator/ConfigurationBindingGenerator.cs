@@ -115,7 +115,7 @@ namespace Configuration.SourceGenerator
                 writer.WriteLine(@$"internal static void Bind(this {wellKnownTypes.IConfigurationType} configuration, {c} value) => BindCore(configuration, value);");
                 writer.WriteLineNoIndent("");
             }
-            
+
             var generatedTypes = new HashSet<Type>();
 
             var q = new Queue<Type>();
@@ -375,7 +375,11 @@ namespace Configuration.SourceGenerator
 
         private bool IsTryParseable(Type type)
         {
-            return GetStaticMethodFromHierarchy(type, "TryParse", new[] { typeof(string), type.MakeByRefType() }) != null;
+            return type.GetMethod("TryParse", 
+                BindingFlags.Public | BindingFlags.Static, 
+                binder: null, 
+                types: new[] { typeof(string), type.MakeByRefType() }, 
+                modifiers: default) is not null;
         }
 
         private static bool IsArrayCompatibleInterface(Type type, out Type elementType)
@@ -428,13 +432,6 @@ namespace Configuration.SourceGenerator
             keyType = null;
             elementType = null;
             return false;
-        }
-
-        private MethodInfo GetStaticMethodFromHierarchy(Type type, string name, Type[] parameterTypes)
-        {
-            var methodInfo = type.GetMethods().FirstOrDefault(m => m.Name == name && m.IsPublic && m.IsStatic && m.GetParameters().Select(p => p.ParameterType).SequenceEqual(parameterTypes));
-
-            return methodInfo;
         }
 
         public void Initialize(GeneratorInitializationContext context)

@@ -1,7 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Reflection;
 using Microsoft.CodeAnalysis;
 
-namespace System.Reflection
+namespace Roslyn.Reflection
 {
     public static class RoslynExtensions
     {
@@ -26,7 +28,7 @@ namespace System.Reflection
 
         public static ITypeSymbol GetTypeSymbol(this Type type) => (type as RoslynType)?.TypeSymbol;
 
-        public static IEnumerable<INamedTypeSymbol> BaseTypes(this INamedTypeSymbol typeSymbol)
+        public static IEnumerable<ITypeSymbol> BaseTypes(this ITypeSymbol typeSymbol)
         {
             var t = typeSymbol;
             while (t != null)

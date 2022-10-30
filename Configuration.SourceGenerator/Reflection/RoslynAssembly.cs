@@ -1,7 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Reflection;
 using Microsoft.CodeAnalysis;
 
-namespace System.Reflection
+namespace Roslyn.Reflection
 {
     internal class RoslynAssembly : Assembly
     {
@@ -12,6 +14,8 @@ namespace System.Reflection
             Symbol = assembly;
             _metadataLoadContext = metadataLoadContext;
         }
+
+        public override string FullName => Symbol.Name;
 
         internal IAssemblySymbol Symbol { get; }
 

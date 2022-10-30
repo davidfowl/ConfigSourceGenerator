@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Roslyn.Reflection;
 
 namespace Configuration.SourceGenerator
 {

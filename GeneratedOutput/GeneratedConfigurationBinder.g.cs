@@ -1,31 +1,25 @@
-﻿
-namespace Microsoft.Extensions.Configuration
+﻿namespace Microsoft.Extensions.Configuration
 {
+    public static class ConfigurationBindingExtensions0
+    {
+        internal static Microsoft.Extensions.DependencyInjection.IServiceCollection Configure<T>(this Microsoft.Extensions.DependencyInjection.IServiceCollection services, Microsoft.Extensions.Configuration.IConfigurationSection configuration) where T : MyOptions
+        {
+            return services.Configure<MyOptions>(o => GeneratedConfigurationBinder.Bind(configuration, o));
+        }
+    }
+    public static class ConfigurationBindingExtensions1
+    {
+        internal static Microsoft.Extensions.DependencyInjection.IServiceCollection Configure<T>(this Microsoft.Extensions.DependencyInjection.IServiceCollection services, Microsoft.Extensions.Configuration.IConfigurationSection configuration) where T : ConfigurationOptions
+        {
+            return services.Configure<ConfigurationOptions>(o => GeneratedConfigurationBinder.Bind(configuration, o));
+        }
+    }
+
     public static class GeneratedConfigurationBinder
     {
-        public static void Bind<T>(this Microsoft.Extensions.Configuration.IConfiguration configuration, T value)
-        {
-            if (typeof(T) == typeof(ConfigurationOptions))
-            {
-                BindCore(configuration, (ConfigurationOptions)(object)value);
-            }
-            else if (typeof(T) == typeof(MyOptions))
-            {
-                BindCore(configuration, (MyOptions)(object)value);
-            }
-        }
+        internal static void Bind(this Microsoft.Extensions.Configuration.IConfiguration configuration, MyOptions value) => BindCore(configuration, value);
 
-        static void BindCore(Microsoft.Extensions.Configuration.IConfiguration configuration, ConfigurationOptions value)
-        {
-            value.Data ??= new();
-            BindCore(configuration.GetSection("Data"), value.Data);
-            value.AzureAd ??= new();
-            BindCore(configuration.GetSection("AzureAd"), value.AzureAd);
-            value.Redis ??= new();
-            BindCore(configuration.GetSection("Redis"), value.Redis);
-            value.KeyVault ??= new();
-            BindCore(configuration.GetSection("KeyVault"), value.KeyVault);
-        }
+        internal static void Bind(this Microsoft.Extensions.Configuration.IConfiguration configuration, ConfigurationOptions value) => BindCore(configuration, value);
 
         static void BindCore(Microsoft.Extensions.Configuration.IConfiguration configuration, MyOptions value)
         {
@@ -40,7 +34,7 @@ namespace Microsoft.Extensions.Configuration
             // System.Collections.Generic.List<MyClass> is not supported
             value.Values2 = default;
             {
-                var items = new List<MyClass>();
+                var items = new System.Collections.Generic.List<MyClass>();
                 foreach (var item in configuration.GetSection("Values3").GetChildren())
                 {
                     MyClass current = default;
@@ -51,7 +45,7 @@ namespace Microsoft.Extensions.Configuration
                 value.Values3 = items.ToArray();
             }
             {
-                var items = new List<MyClass>();
+                var items = new System.Collections.Generic.List<MyClass>();
                 foreach (var item in configuration.GetSection("Values4").GetChildren())
                 {
                     MyClass current = default;
@@ -89,6 +83,23 @@ namespace Microsoft.Extensions.Configuration
             BindCore(configuration.GetSection("MyProperty"), value.MyProperty);
         }
 
+        static void BindCore(Microsoft.Extensions.Configuration.IConfiguration configuration, ConfigurationOptions value)
+        {
+            value.Data ??= new();
+            BindCore(configuration.GetSection("Data"), value.Data);
+            value.AzureAd ??= new();
+            BindCore(configuration.GetSection("AzureAd"), value.AzureAd);
+            value.Redis ??= new();
+            BindCore(configuration.GetSection("Redis"), value.Redis);
+            value.KeyVault ??= new();
+            BindCore(configuration.GetSection("KeyVault"), value.KeyVault);
+        }
+
+        static void BindCore(Microsoft.Extensions.Configuration.IConfiguration configuration, MyClass value)
+        {
+            value.SomethingElse = int.TryParse(configuration["SomethingElse"], out var SomethingElseTemp) ? SomethingElseTemp : default;
+        }
+
         static void BindCore(Microsoft.Extensions.Configuration.IConfiguration configuration, DatabaseOptions value)
         {
             value.SurveysConnectionString = configuration["SurveysConnectionString"];
@@ -97,7 +108,7 @@ namespace Microsoft.Extensions.Configuration
         static void BindCore(Microsoft.Extensions.Configuration.IConfiguration configuration, AzureAdOptions value)
         {
             {
-                var items = new List<string>();
+                var items = new System.Collections.Generic.List<string>();
                 foreach (var item in configuration.GetSection("ClientId").GetChildren())
                 {
                     items.Add(item.Value);
@@ -121,11 +132,6 @@ namespace Microsoft.Extensions.Configuration
             value.Name = configuration["Name"];
         }
 
-        static void BindCore(Microsoft.Extensions.Configuration.IConfiguration configuration, MyClass value)
-        {
-            value.SomethingElse = int.TryParse(configuration["SomethingElse"], out var SomethingElseTemp) ? SomethingElseTemp : default;
-        }
-
         static void BindCore(Microsoft.Extensions.Configuration.IConfiguration configuration, AsymmetricEncryptionOptions value)
         {
             value.CertificateThumbprint = configuration["CertificateThumbprint"];
@@ -133,5 +139,6 @@ namespace Microsoft.Extensions.Configuration
             value.StoreLocation = Enum.TryParse<System.Security.Cryptography.X509Certificates.StoreLocation>(configuration["StoreLocation"], true, out var StoreLocationTemp) ? StoreLocationTemp : default;
             value.ValidationRequired = bool.TryParse(configuration["ValidationRequired"], out var ValidationRequiredTemp) ? ValidationRequiredTemp : default;
         }
+
     }
 }

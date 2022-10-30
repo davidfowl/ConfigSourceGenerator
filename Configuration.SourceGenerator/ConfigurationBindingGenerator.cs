@@ -59,8 +59,7 @@ namespace Configuration.SourceGenerator
             var writer = new CodeWriter(sb);
 
             writer.WriteLine("namespace Microsoft.Extensions.Configuration");
-            writer.WriteLine("{");
-            writer.Indent();
+            writer.StartBlock();
 
             //writer.WriteLine(@$"public static {wellKnownTypes.IServiceCollectionType} ConfigureAot<T>(this {wellKnownTypes.IServiceCollectionType} services, {wellKnownTypes.IConfigurationSectionType} configuration)");
             //writer.WriteLine("{");
@@ -88,27 +87,22 @@ namespace Configuration.SourceGenerator
             foreach (var c in configTypes)
             {
                 writer.WriteLine($"public static class ConfigurationBindingExtensions{i}");
-                writer.WriteLine("{");
-                writer.Indent();
+                writer.StartBlock();
 
                 // Configure method
                 writer.WriteLine(@$"internal static {wellKnownTypes.IServiceCollectionType} Configure<T>(this {wellKnownTypes.IServiceCollectionType} services, {wellKnownTypes.IConfigurationSectionType} configuration) where T : {c}");
-                writer.WriteLine("{");
-                writer.Indent();
+                writer.StartBlock();
                 writer.WriteLine(@$"return services.Configure<{c}>(o => GeneratedConfigurationBinder.Bind(configuration, o));");
-                writer.Unindent();
-                writer.WriteLine("}");
+                writer.EndBlock();
 
-                writer.Unindent();
-                writer.WriteLine("}");
+                writer.EndBlock();
                 i++;
             }
 
             writer.WriteLineNoIndent("");
 
             writer.WriteLine($"public static class GeneratedConfigurationBinder");
-            writer.WriteLine("{");
-            writer.Indent();
+            writer.StartBlock();
             // Bind methods
             foreach (var c in configTypes)
             {
@@ -135,19 +129,14 @@ namespace Configuration.SourceGenerator
                 }
 
                 writer.WriteLine($@"static void BindCore({wellKnownTypes.IConfigurationType} configuration, {type} value)");
-                writer.WriteLine("{");
-                writer.Indent();
+                writer.StartBlock();
                 GenerateConfigurationBind(wellKnownTypes, writer, type, q);
-                writer.Unindent();
-                writer.WriteLine("}");
+                writer.EndBlock();
                 writer.WriteLineNoIndent("");
             }
 
-            writer.Unindent();
-            writer.WriteLine("}");
-
-            writer.Unindent();
-            writer.WriteLine("}");
+            writer.EndBlock();
+            writer.EndBlock();
 
             if (sb.Length > 0)
             {

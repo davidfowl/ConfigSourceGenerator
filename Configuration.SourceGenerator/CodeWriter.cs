@@ -12,6 +12,18 @@ namespace SourceGenerator
             _codeBuilder = stringBuilder;
         }
 
+        public void StartBlock()
+        {
+            WriteLine("{");
+            Indent();
+        }
+
+        public void EndBlock()
+        {
+            Unindent();
+            WriteLine("}");
+        }
+
         public void Indent()
         {
             _indent++;

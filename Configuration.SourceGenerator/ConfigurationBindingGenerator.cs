@@ -58,51 +58,29 @@ namespace Configuration.SourceGenerator
             var sb = new StringBuilder();
             var writer = new CodeWriter(sb);
 
-            writer.WriteLine("namespace Microsoft.Extensions.Configuration");
+            writer.WriteLine($"public static class GeneratedConfigurationBinder");
             writer.StartBlock();
 
-            //writer.WriteLine(@$"public static {wellKnownTypes.IServiceCollectionType} ConfigureAot<T>(this {wellKnownTypes.IServiceCollectionType} services, {wellKnownTypes.IConfigurationSectionType} configuration)");
-            //writer.WriteLine("{");
-            //writer.Indent();
-
-            //var i = 0;
-            //foreach (var c in configTypes)
-            //{
-            //    // Configure method
-            //    writer.WriteLine(@$"{(i > 0 ? "else " : "")}if (typeof(T) == typeof({c}))");
-            //    writer.WriteLine("{");
-            //    writer.Indent();
-            //    writer.WriteLine(@$"services.Configure<{c}>(o => BindCore(configuration, o));");
-            //    writer.Unindent();
-            //    writer.WriteLine("}");
-            //    i++;
-            //}
-
-            //writer.WriteLine(@$"return services;");
-            //writer.Unindent();
-            //writer.WriteLine("}");
-            //writer.WriteLineNoIndent("");
+            writer.WriteLine(@$"public static {wellKnownTypes.IServiceCollectionType} Configure<T>(this {wellKnownTypes.IServiceCollectionType} services, {wellKnownTypes.IConfigurationType} configuration)");
+            writer.StartBlock();
 
             var i = 0;
             foreach (var c in configTypes)
             {
-                writer.WriteLine($"public static class ConfigurationBindingExtensions{i}");
-                writer.StartBlock();
-
                 // Configure method
-                writer.WriteLine(@$"internal static {wellKnownTypes.IServiceCollectionType} Configure<T>(this {wellKnownTypes.IServiceCollectionType} services, {wellKnownTypes.IConfigurationSectionType} configuration) where T : {c}");
-                writer.StartBlock();
-                writer.WriteLine(@$"return services.Configure<{c}>(o => GeneratedConfigurationBinder.Bind(configuration, o));");
-                writer.EndBlock();
-
-                writer.EndBlock();
+                writer.WriteLine(@$"{(i > 0 ? "else " : "")}if (typeof(T) == typeof({c}))");
+                writer.WriteLine("{");
+                writer.Indent();
+                writer.WriteLine(@$"services.Configure<{c}>(o => BindCore(configuration, o));");
+                writer.Unindent();
+                writer.WriteLine("}");
                 i++;
             }
 
+            writer.WriteLine(@$"return services;");
+            writer.EndBlock();
             writer.WriteLineNoIndent("");
 
-            writer.WriteLine($"public static class GeneratedConfigurationBinder");
-            writer.StartBlock();
             // Bind methods
             foreach (var c in configTypes)
             {
@@ -135,7 +113,6 @@ namespace Configuration.SourceGenerator
                 writer.WriteLineNoIndent("");
             }
 
-            writer.EndBlock();
             writer.EndBlock();
 
             if (sb.Length > 0)

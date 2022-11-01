@@ -119,7 +119,7 @@ namespace Configuration.SourceGenerator
             {
                 var text = writer.ToString();
 
-                context.AddSource($"GeneratedConfigurationBinder.g", SourceText.From(text, Encoding.UTF8));
+                context.AddSource($"Configuration.g", SourceText.From(text, Encoding.UTF8));
             }
         }
 

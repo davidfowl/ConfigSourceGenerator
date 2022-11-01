@@ -58,7 +58,7 @@ namespace Configuration.SourceGenerator
             var sb = new StringBuilder();
             var writer = new CodeWriter(sb);
 
-            writer.WriteLine($"public static class GeneratedConfigurationBinder");
+            writer.WriteLine($"internal static class GeneratedConfigurationBinder");
             writer.StartBlock();
 
             writer.WriteLine(@$"public static {wellKnownTypes.IServiceCollectionType} Configure<T>(this {wellKnownTypes.IServiceCollectionType} services, {wellKnownTypes.IConfigurationType} configuration)");

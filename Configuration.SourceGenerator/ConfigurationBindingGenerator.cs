@@ -69,11 +69,9 @@ namespace Configuration.SourceGenerator
             {
                 // Configure method
                 writer.WriteLine(@$"{(i > 0 ? "else " : "")}if (typeof(T) == typeof({c}))");
-                writer.WriteLine("{");
-                writer.Indent();
+                writer.StartBlock();
                 writer.WriteLine(@$"services.Configure<{c}>(o => BindCore(configuration, o));");
-                writer.Unindent();
-                writer.WriteLine("}");
+                writer.EndBlock();
                 i++;
             }
 
@@ -242,12 +240,10 @@ namespace Configuration.SourceGenerator
             }
             else if (IsArrayCompatibleInterface(type, out var elementType))
             {
-                writer.WriteLine("{");
-                writer.Indent();
+                writer.StartBlock();
                 writer.WriteLine($"var items = new System.Collections.Generic.List<{elementType}>();");
                 writer.WriteLine($@"foreach (var item in {configurationExpr}.GetSection({index}).GetChildren())");
-                writer.WriteLine("{");
-                writer.Indent();
+                writer.StartBlock();
                 if (elementType.Equals(typeof(string)))
                 {
                     writer.WriteLine($"items.Add(item.Value);");
@@ -258,14 +254,12 @@ namespace Configuration.SourceGenerator
                     WriteValue("current", elementType, "item.Key", "indexTemp", "item", wellKnownTypes, writer, dependentTypes);
                     writer.WriteLine("items.Add(current);");
                 }
-                writer.Unindent();
-                writer.WriteLine("}");
+                writer.EndBlock();
                 writer.Write(lhs);
                 writer.WriteNoIndent(" = ");
                 writer.WriteLineNoIndent("items.ToArray();");
 
-                writer.Unindent();
-                writer.WriteLine("}");
+                writer.EndBlock();
             }
             else if (TypeIsADictionaryInterface(type, out var keyType, out var valueType))
             {
@@ -286,12 +280,10 @@ namespace Configuration.SourceGenerator
                     return;
                 }
 
-                writer.WriteLine("{");
-                writer.Indent();
+                writer.StartBlock();
                 writer.WriteLine($"var dict = new System.Collections.Generic.Dictionary<{keyType}, {valueType}>();");
                 writer.WriteLine($@"foreach (var item in {configurationExpr}.GetSection({index}).GetChildren())");
-                writer.WriteLine("{");
-                writer.Indent();
+                writer.StartBlock();
 
                 if (valueType.Equals(typeof(string)))
                 {
@@ -303,14 +295,13 @@ namespace Configuration.SourceGenerator
                     WriteValue("current", valueType, "item.Key", "indexTemp", "item", wellKnownTypes, writer, dependentTypes);
                     writer.WriteLine($"dict.Add({keyExpression}, current);");
                 }
-                writer.Unindent();
-                writer.WriteLine("}");
+
+                writer.EndBlock();
                 writer.Write(lhs);
                 writer.WriteNoIndent(" = ");
                 writer.WriteLineNoIndent("dict;");
 
-                writer.Unindent();
-                writer.WriteLine("}");
+                writer.EndBlock();
             }
             else if (IsTryParseable(type))
             {

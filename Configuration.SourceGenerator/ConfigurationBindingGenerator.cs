@@ -61,23 +61,27 @@ namespace Configuration.SourceGenerator
             writer.WriteLine($"internal static class GeneratedConfigurationBinder");
             writer.StartBlock();
 
-            writer.WriteLine(@$"public static {wellKnownTypes.IServiceCollectionType} Configure<T>(this {wellKnownTypes.IServiceCollectionType} services, {wellKnownTypes.IConfigurationType} configuration)");
-            writer.StartBlock();
-
-            var i = 0;
-            foreach (var c in configTypes)
+            // Only generate configure calls if these assemblies are referenced and if we found configuration types
+            if (wellKnownTypes.IServiceCollectionType is not null && configTypes.Count > 0)
             {
-                // Configure method
-                writer.WriteLine(@$"{(i > 0 ? "else " : "")}if (typeof(T) == typeof({c}))");
+                writer.WriteLine(@$"public static {wellKnownTypes.IServiceCollectionType} Configure<T>(this {wellKnownTypes.IServiceCollectionType} services, {wellKnownTypes.IConfigurationType} configuration)");
                 writer.StartBlock();
-                writer.WriteLine(@$"services.Configure<{c}>(o => BindCore(configuration, o));");
-                writer.EndBlock();
-                i++;
-            }
 
-            writer.WriteLine(@$"return services;");
-            writer.EndBlock();
-            writer.WriteLineNoIndent("");
+                var i = 0;
+                foreach (var c in configTypes)
+                {
+                    // Configure method
+                    writer.WriteLine(@$"{(i > 0 ? "else " : "")}if (typeof(T) == typeof({c}))");
+                    writer.StartBlock();
+                    writer.WriteLine(@$"services.Configure<{c}>(o => BindCore(configuration, o));");
+                    writer.EndBlock();
+                    i++;
+                }
+
+                writer.WriteLine(@$"return services;");
+                writer.EndBlock();
+                writer.WriteLineNoIndent("");
+            }
 
             // Bind methods
             foreach (var c in configTypes)

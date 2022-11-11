@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
 
+#nullable disable
 namespace Roslyn.Reflection
 {
     internal class RoslynMethodInfo : MethodInfo
@@ -17,33 +18,7 @@ namespace Roslyn.Reflection
             _method = method;
             _metadataLoadContext = metadataLoadContext;
 
-            if (method.IsAbstract)
-            {
-                Attributes |= MethodAttributes.Abstract | MethodAttributes.Virtual;
-            }
-
-            if (method.IsStatic)
-            {
-                Attributes |= MethodAttributes.Static;
-            }
-
-            if (method.IsVirtual || method.IsOverride)
-            {
-                Attributes |= MethodAttributes.Virtual;
-            }
-
-            switch (method.DeclaredAccessibility)
-            {
-                case Accessibility.Public:
-                    Attributes |= MethodAttributes.Public;
-                    break;
-                case Accessibility.Private:
-                    Attributes |= MethodAttributes.Private;
-                    break;
-                case Accessibility.Internal:
-                    Attributes |= MethodAttributes.Assembly;
-                    break;
-            }
+            Attributes = SharedUtilities.GetMethodAttributes(method);
         }
 
         public override ICustomAttributeProvider ReturnTypeCustomAttributes => throw new NotImplementedException();
@@ -66,17 +41,35 @@ namespace Roslyn.Reflection
 
         public override IList<CustomAttributeData> GetCustomAttributesData()
         {
-            var attributes = new List<CustomAttributeData>();
-            foreach (var a in _method.GetAttributes())
-            {
-                attributes.Add(new RoslynCustomAttributeData(a, _metadataLoadContext));
-            }
-            return attributes;
+            return SharedUtilities.GetCustomAttributesData(_method, _metadataLoadContext);
         }
 
         public override MethodInfo GetBaseDefinition()
         {
-            throw new NotImplementedException();
+            var method = _method;
+
+            // Walk until we find the base definition for this method
+            while (method.OverriddenMethod is not null)
+            {
+                method = method.OverriddenMethod;
+            }
+
+            if (method.Equals(_method, SymbolEqualityComparer.Default))
+            {
+                return this;
+            }
+
+            return method.AsMethodInfo(_metadataLoadContext);
+        }
+
+        public override MethodInfo MakeGenericMethod(params Type[] typeArguments)
+        {
+            var typeSymbols = new ITypeSymbol[typeArguments.Length];
+            for (int i = 0; i < typeSymbols.Length; i++)
+            {
+                typeSymbols[i] = _metadataLoadContext.ResolveType(typeArguments[i]).GetTypeSymbol();
+            }
+            return _method.Construct(typeSymbols).AsMethodInfo(_metadataLoadContext);
         }
 
         public override object[] GetCustomAttributes(bool inherit)
@@ -91,12 +84,13 @@ namespace Roslyn.Reflection
 
         public override Type[] GetGenericArguments()
         {
-            var typeArguments = new List<Type>();
+            List<Type> typeArguments = default;
             foreach (var t in _method.TypeArguments)
             {
+                typeArguments ??= new();
                 typeArguments.Add(t.AsType(_metadataLoadContext));
             }
-            return typeArguments.ToArray();
+            return typeArguments?.ToArray() ?? Array.Empty<Type>();
         }
 
         public override MethodImplAttributes GetMethodImplementationFlags()
@@ -106,12 +100,13 @@ namespace Roslyn.Reflection
 
         public override ParameterInfo[] GetParameters()
         {
-            var parameters = new List<ParameterInfo>();
+            List<ParameterInfo> parameters = default;
             foreach (var p in _method.Parameters)
             {
-                parameters.Add(new RoslynParameterInfo(p, _metadataLoadContext));
+                parameters ??= new();
+                parameters.Add(p.AsParameterInfo(_metadataLoadContext));
             }
-            return parameters.ToArray();
+            return parameters?.ToArray() ?? Array.Empty<ParameterInfo>();
         }
 
         public override object Invoke(object obj, BindingFlags invokeAttr, Binder binder, object[] parameters, CultureInfo culture)
@@ -121,12 +116,10 @@ namespace Roslyn.Reflection
 
         public override bool IsDefined(Type attributeType, bool inherit)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
 
-        public override string ToString()
-        {
-            return _method.ToString();
-        }
+        public override string ToString() => _method.ToString();
     }
 }
+#nullable restore

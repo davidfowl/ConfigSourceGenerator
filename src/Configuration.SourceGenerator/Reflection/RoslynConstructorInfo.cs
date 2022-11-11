@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
 
+#nullable disable
 namespace Roslyn.Reflection
 {
     internal class RoslynConstructorInfo : ConstructorInfo
@@ -15,11 +16,12 @@ namespace Roslyn.Reflection
         {
             _ctor = ctor;
             _metadataLoadContext = metadataLoadContext;
+            Attributes = SharedUtilities.GetMethodAttributes(ctor);
         }
 
         public override Type DeclaringType => _ctor.ContainingType.AsType(_metadataLoadContext);
 
-        public override MethodAttributes Attributes => throw new NotImplementedException();
+        public override MethodAttributes Attributes { get; }
 
         public override RuntimeMethodHandle MethodHandle => throw new NotSupportedException();
 
@@ -41,12 +43,7 @@ namespace Roslyn.Reflection
 
         public override IList<CustomAttributeData> GetCustomAttributesData()
         {
-            var attributes = new List<CustomAttributeData>();
-            foreach (var a in _ctor.GetAttributes())
-            {
-                attributes.Add(new RoslynCustomAttributeData(a, _metadataLoadContext));
-            }
-            return attributes;
+            return SharedUtilities.GetCustomAttributesData(_ctor, _metadataLoadContext);
         }
 
         public override object[] GetCustomAttributes(bool inherit)
@@ -66,12 +63,13 @@ namespace Roslyn.Reflection
 
         public override ParameterInfo[] GetParameters()
         {
-            var parameters = new List<ParameterInfo>();
+            List<ParameterInfo> parameters = default;
             foreach (var p in _ctor.Parameters)
             {
-                parameters.Add(new RoslynParameterInfo(p, _metadataLoadContext));
+                parameters ??= new();
+                parameters.Add(p.AsParameterInfo(_metadataLoadContext));
             }
-            return parameters.ToArray();
+            return parameters?.ToArray() ?? Array.Empty<ParameterInfo>();
         }
 
         public override object Invoke(BindingFlags invokeAttr, Binder binder, object[] parameters, CultureInfo culture)
@@ -90,3 +88,4 @@ namespace Roslyn.Reflection
         }
     }
 }
+#nullable restore

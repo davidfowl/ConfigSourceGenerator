@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
 
+#nullable disable
 namespace Roslyn.Reflection
 {
     internal class RoslynPropertyInfo : PropertyInfo
@@ -55,12 +56,13 @@ namespace Roslyn.Reflection
 
         public override ParameterInfo[] GetIndexParameters()
         {
-            var parameters = new List<ParameterInfo>();
+            List<ParameterInfo> parameters = default;
             foreach (var p in _property.Parameters)
             {
-                parameters.Add(new RoslynParameterInfo(p, _metadataLoadContext));
+                parameters ??= new();
+                parameters.Add(p.AsParameterInfo(_metadataLoadContext));
             }
-            return parameters.ToArray();
+            return parameters?.ToArray() ?? Array.Empty<ParameterInfo>();
         }
 
         public override MethodInfo GetSetMethod(bool nonPublic)
@@ -84,3 +86,4 @@ namespace Roslyn.Reflection
         }
     }
 }
+#nullable restore

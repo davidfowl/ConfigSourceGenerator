@@ -18,6 +18,14 @@ app.MapGet("/", () => "Hello World!");
 
 app.Run();
 
+class MyClass2
+{
+    public MyClass2(IConfiguration c)
+    {
+        c.Bind(this);
+    }
+}
+
 [GenerateBinder]
 class MyOptions
 {

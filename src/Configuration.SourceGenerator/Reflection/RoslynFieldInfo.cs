@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
-using System.Text;
 using Microsoft.CodeAnalysis;
 
+#nullable disable
 namespace Roslyn.Reflection
 {
     internal class RoslynFieldInfo : FieldInfo
@@ -57,7 +57,7 @@ namespace Roslyn.Reflection
             }
         }
 
-        public override RuntimeFieldHandle FieldHandle => throw new NotImplementedException();
+        public override RuntimeFieldHandle FieldHandle => throw new NotSupportedException();
 
         public override Type FieldType => _field.Type.AsType(_metadataLoadContext);
 
@@ -69,12 +69,12 @@ namespace Roslyn.Reflection
 
         public override object[] GetCustomAttributes(bool inherit)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
 
         public override object[] GetCustomAttributes(Type attributeType, bool inherit)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
 
         public override object GetValue(object obj)
@@ -84,22 +84,20 @@ namespace Roslyn.Reflection
 
         public override IList<CustomAttributeData> GetCustomAttributesData()
         {
-            var attributes = new List<CustomAttributeData>();
-            foreach (AttributeData a in _field.GetAttributes())
-            {
-                attributes.Add(new RoslynCustomAttributeData(a, _metadataLoadContext));
-            }
-            return attributes;
+            return SharedUtilities.GetCustomAttributesData(_field, _metadataLoadContext);
         }
 
         public override bool IsDefined(Type attributeType, bool inherit)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
 
         public override void SetValue(object obj, object value, BindingFlags invokeAttr, Binder binder, CultureInfo culture)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
+
+        public override string ToString() => _field.ToString();
     }
 }
+#nullable restore

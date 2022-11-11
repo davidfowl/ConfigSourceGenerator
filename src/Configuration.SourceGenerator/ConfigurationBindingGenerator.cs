@@ -296,7 +296,7 @@ namespace Configuration.SourceGenerator
             {
                 writer.Write(lhs);
                 writer.WriteNoIndent(" = ");
-                writer.WriteLineNoIndent($@"System.Convert.FromBase64String({configurationExpr}[{index}]);");
+                writer.WriteLineNoIndent($@"{configurationExpr}[{index}] is {{ }} {tempName} ? System.Convert.FromBase64String({tempName}) : default;");
             }
             else if (type.Equals(wellKnownTypes.IConfigurationSectionType))
             {

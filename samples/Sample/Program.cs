@@ -3,7 +3,14 @@ using System.Security.Principal;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.Configure<MyOptions>(builder.Configuration.GetSection("MyOptions"));
+var section = builder.Configuration.GetSection("MyOptions");
+
+builder.Services.Configure<MyOptions>(section);
+
+var myOptions0 = section.Get<MyOptions>();
+
+var myOptions1 = new MyOptions();
+section.Bind(myOptions1);
 
 var app = builder.Build();
 

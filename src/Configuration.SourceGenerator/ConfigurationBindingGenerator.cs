@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Operations;
 using Microsoft.CodeAnalysis.Text;
 using Roslyn.Reflection;
 using SourceGenerator;
@@ -39,9 +40,13 @@ namespace Configuration.SourceGenerator
 
             var configTypes = new HashSet<Type>();
 
+            var sb = new StringBuilder();
+            var writer = new CodeWriter(sb);
+
             ProcessBindCalls(context, receiver, metadataLoadContext, wellKnownTypes, configTypes);
 
             // ProcessConfigureCalls(context, receiver, metadataLoadContext, wellKnownTypes, configTypes);
+            ProcessGetCalls(context, receiver, metadataLoadContext, wellKnownTypes, configTypes);
 
             if (wellKnownTypes.GenerateBinderAttributeType is { } attribute)
             {
@@ -55,33 +60,52 @@ namespace Configuration.SourceGenerator
                 }
             }
 
-            var sb = new StringBuilder();
-            var writer = new CodeWriter(sb);
-
             writer.WriteLine($"internal static class GeneratedConfigurationBinder");
             writer.StartBlock();
 
+            var i = 0;
             // Only generate configure calls if these assemblies are referenced and if we found configuration types
             if (wellKnownTypes.IServiceCollectionType is not null && configTypes.Count > 0)
             {
                 writer.WriteLine(@$"public static {wellKnownTypes.IServiceCollectionType} Configure<T>(this {wellKnownTypes.IServiceCollectionType} services, {wellKnownTypes.IConfigurationType} configuration)");
                 writer.StartBlock();
 
-                var i = 0;
                 foreach (var c in configTypes)
                 {
                     // Configure method
                     writer.WriteLine(@$"{(i > 0 ? "else " : "")}if (typeof(T) == typeof({c}))");
                     writer.StartBlock();
-                    writer.WriteLine(@$"services.Configure<{c}>(o => BindCore(configuration, o));");
+                    writer.WriteLine(@$"return services.Configure<{c}>(o => BindCore(configuration, o));");
                     writer.EndBlock();
                     i++;
                 }
 
-                writer.WriteLine(@$"return services;");
+                writer.WriteLine(@$"throw new {typeof(InvalidOperationException)}($""Unable to bind {{typeof(T)}}"");");
                 writer.EndBlock();
                 writer.WriteLineNoIndent("");
             }
+
+            // Get methods
+            writer.WriteLine(@$"public static T Get<T>(this {wellKnownTypes.IConfigurationType} configuration)");
+            writer.StartBlock();
+
+            i = 0;
+            foreach (var c in configTypes)
+            {
+                // Configure method
+                writer.WriteLine(@$"{(i > 0 ? "else " : "")}if (typeof(T) == typeof({c}))");
+                writer.StartBlock();
+                // Which constructor?
+                writer.WriteLine($"var obj = new {c}();");
+                writer.WriteLine(@$"BindCore(configuration, obj);");
+                writer.WriteLine("return (T)(object)obj;");
+                writer.EndBlock();
+                i++;
+            }
+
+            writer.WriteLine(@$"throw new {typeof(InvalidOperationException)}($""Unable to bind {{typeof(T)}}"");");
+            writer.EndBlock();
+            writer.WriteLineNoIndent("");
 
             // Bind methods
             foreach (var c in configTypes)
@@ -165,6 +189,50 @@ namespace Configuration.SourceGenerator
                 }
 
                 var configurationType = ResolveType(argumentSymbolInfo.Symbol)?.WithNullableAnnotation(NullableAnnotation.None);
+
+                if (configurationType is null || configurationType.SpecialType == SpecialType.System_Object || configurationType.SpecialType == SpecialType.System_Void)
+                {
+                    continue;
+                }
+
+                configTypes.Add(configurationType.AsType(metadataLoadContext));
+            }
+        }
+
+        private static void ProcessGetCalls(GeneratorExecutionContext context, SyntaxReceiver receiver, MetadataLoadContext metadataLoadContext, WellKnownTypes wellKnownTypes, HashSet<Type> configTypes)
+        {
+            foreach (var invocation in receiver.GetCalls)
+            {
+                var semanticModel = context.Compilation.GetSemanticModel(invocation.SyntaxTree);
+
+                var operation = semanticModel.GetOperation(invocation) as IInvocationOperation;
+
+                if (operation is IInvocationOperation { Arguments: { Length: 1 } } invocationOperation &&
+                    invocationOperation.TargetMethod.IsExtensionMethod &&
+                    invocationOperation.TargetMethod.IsGenericMethod &&
+                    wellKnownTypes.IConfigurationType.Equals(invocationOperation.TargetMethod.Parameters[0].Type))
+                {
+                    // We're looking for IConfiguration.Bind(object)
+                }
+                else
+                {
+                    continue;
+                }
+
+                static ITypeSymbol ResolveType(ISymbol s)
+                {
+                    return s switch
+                    {
+                        ITypeSymbol t => t,
+                        IFieldSymbol f => f.Type,
+                        ILocalSymbol l => l.Type,
+                        IMethodSymbol m when m.MethodKind == MethodKind.Constructor => m.ContainingType,
+                        IMethodSymbol m => m.ReturnType,
+                        _ => null
+                    };
+                }
+
+                var configurationType = ResolveType(operation.TargetMethod.TypeArguments[0]);
 
                 if (configurationType is null || configurationType.SpecialType == SpecialType.System_Object || configurationType.SpecialType == SpecialType.System_Void)
                 {
@@ -336,10 +404,10 @@ namespace Configuration.SourceGenerator
 
         private bool IsTryParseable(Type type)
         {
-            return type.GetMethod("TryParse", 
-                BindingFlags.Public | BindingFlags.Static, 
-                binder: null, 
-                types: new[] { typeof(string), type.MakeByRefType() }, 
+            return type.GetMethod("TryParse",
+                BindingFlags.Public | BindingFlags.Static,
+                binder: null,
+                types: new[] { typeof(string), type.MakeByRefType() },
                 modifiers: default) is not null;
         }
 
@@ -403,6 +471,7 @@ namespace Configuration.SourceGenerator
         private class SyntaxReceiver : ISyntaxReceiver
         {
             public List<(InvocationExpressionSyntax, ExpressionSyntax)> BindCalls { get; } = new();
+            public List<InvocationExpressionSyntax> GetCalls { get; } = new();
             public List<(InvocationExpressionSyntax, ExpressionSyntax)> ConfigureCalls { get; } = new();
 
             public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
@@ -435,6 +504,21 @@ namespace Configuration.SourceGenerator
                     } configureCall)
                 {
                     ConfigureCalls.Add((configureCall, configureArgs[0].Expression));
+                }
+
+                if (syntaxNode is InvocationExpressionSyntax
+                    {
+                        Expression: MemberAccessExpressionSyntax
+                        {
+                            Name: GenericNameSyntax
+                            {
+                                Identifier: { ValueText: "Get" }
+                            }
+                        },
+                        ArgumentList: { Arguments: { Count: 0 } getArgs }
+                    } getCall)
+                {
+                    GetCalls.Add(getCall);
                 }
             }
         }

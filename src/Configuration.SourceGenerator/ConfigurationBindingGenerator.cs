@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -30,24 +29,23 @@ namespace Configuration.SourceGenerator
                 System.Diagnostics.Debugger.Launch();
             }
 
-            //while (!System.Diagnostics.Debugger.IsAttached)
-            //{
-            //    System.Threading.Thread.Sleep(1000);
-            //}
-            // System.Diagnostics.Debugger.Launch();
-
             var metadataLoadContext = new MetadataLoadContext(context.Compilation);
             var wellKnownTypes = new WellKnownTypes(metadataLoadContext);
+            if (wellKnownTypes.IConfigurationType is null)
+            {
+                // No configuration type, bail
+                return;
+            }
 
             var configTypes = new HashSet<Type>();
 
-            var sb = new StringBuilder();
-            var writer = new CodeWriter(sb);
-
-            ProcessBindCalls(context, receiver, metadataLoadContext, wellKnownTypes, configTypes, writer);
-
-            // ProcessConfigureCalls(context, receiver, metadataLoadContext, wellKnownTypes, configTypes);
+            ProcessBindCalls(context, receiver, metadataLoadContext, wellKnownTypes, configTypes);
             ProcessGetCalls(context, receiver, metadataLoadContext, wellKnownTypes, configTypes);
+
+            if (wellKnownTypes.IServiceCollectionType is not null)
+            {
+                ProcessConfigureCalls(context, receiver, metadataLoadContext, wellKnownTypes, configTypes);
+            }
 
             if (wellKnownTypes.GenerateBinderAttributeType is { } attribute)
             {
@@ -60,6 +58,9 @@ namespace Configuration.SourceGenerator
                     }
                 }
             }
+
+            var sb = new StringBuilder();
+            var writer = new CodeWriter(sb);
 
             writer.WriteLine($"internal static class GeneratedConfigurationBinder");
             writer.StartBlock();
@@ -150,7 +151,7 @@ namespace Configuration.SourceGenerator
             }
         }
 
-        private static void ProcessBindCalls(GeneratorExecutionContext context, SyntaxReceiver receiver, MetadataLoadContext metadataLoadContext, WellKnownTypes wellKnownTypes, HashSet<Type> configTypes, CodeWriter writer)
+        private static void ProcessBindCalls(GeneratorExecutionContext context, SyntaxReceiver receiver, MetadataLoadContext metadataLoadContext, WellKnownTypes wellKnownTypes, HashSet<Type> configTypes)
         {
             foreach (var invocation in receiver.BindCalls)
             {
@@ -171,7 +172,6 @@ namespace Configuration.SourceGenerator
                 }
 
                 var argument = arguments[1].Value as IConversionOperation;
-                writer.WriteLine($"// {argument?.Operand} -> {argument?.Operand?.Syntax}");
 
                 static ITypeSymbol ResolveType(IOperation argument)
                 {
@@ -219,20 +219,7 @@ namespace Configuration.SourceGenerator
                     continue;
                 }
 
-                static ITypeSymbol ResolveType(ISymbol s)
-                {
-                    return s switch
-                    {
-                        ITypeSymbol t => t,
-                        IFieldSymbol f => f.Type,
-                        ILocalSymbol l => l.Type,
-                        IMethodSymbol m when m.MethodKind == MethodKind.Constructor => m.ContainingType,
-                        IMethodSymbol m => m.ReturnType,
-                        _ => null
-                    };
-                }
-
-                var configurationType = ResolveType(invocationOperation.TargetMethod.TypeArguments[0]);
+                var configurationType = invocationOperation.TargetMethod.TypeArguments[0].WithNullableAnnotation(NullableAnnotation.None);
 
                 if (configurationType is null || configurationType.SpecialType == SpecialType.System_Object || configurationType.SpecialType == SpecialType.System_Void)
                 {
@@ -243,35 +230,37 @@ namespace Configuration.SourceGenerator
             }
         }
 
-        //private static void ProcessConfigureCalls(GeneratorExecutionContext context, SyntaxReceiver receiver, MetadataLoadContext metadataLoadContext, WellKnownTypes wellKnownTypes, HashSet<Type> configTypes)
-        //{
-        //    foreach (var (invocation, argument) in receiver.ConfigureCalls)
-        //    {
-        //        var semanticModel = context.Compilation.GetSemanticModel(invocation.SyntaxTree);
+        private static void ProcessConfigureCalls(GeneratorExecutionContext context, SyntaxReceiver receiver, MetadataLoadContext metadataLoadContext, WellKnownTypes wellKnownTypes, HashSet<Type> configTypes)
+        {
+            foreach (var invocation in receiver.ConfigureCalls)
+            {
+                var semanticModel = context.Compilation.GetSemanticModel(invocation.SyntaxTree);
 
-        //        var method = semanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+                var operation = semanticModel.GetOperation(invocation);
 
-        //        if (method is { IsGenericMethod: true, Parameters: { Length: 1 } parameters } &&
-        //            wellKnownTypes.IConfigurationType.Equals(parameters[0].Type) &&
-        //            wellKnownTypes.IServiceCollectionType.Equals(method.ReceiverType))
-        //        {
-        //            // We're looking for IServiceCollection.Configure<T>(IConfiguration)
-        //        }
-        //        else
-        //        {
-        //            continue;
-        //        }
+                if (operation is IInvocationOperation { Arguments: { Length: 2 } } invocationOperation &&
+                    invocationOperation.TargetMethod.IsExtensionMethod &&
+                    invocationOperation.TargetMethod.IsGenericMethod &&
+                    wellKnownTypes.IServiceCollectionType.Equals(invocationOperation.TargetMethod.Parameters[0].Type) &&
+                    wellKnownTypes.IConfigurationType.Equals(invocationOperation.TargetMethod.Parameters[1].Type))
+                {
+                    // We're looking for IServiceCollection.Configure<T>(IConfiguration)
+                }
+                else
+                {
+                    continue;
+                }
 
-        //        var configurationType = method.TypeArguments[0].WithNullableAnnotation(NullableAnnotation.None);
+                var configurationType = invocationOperation.TargetMethod.TypeArguments[0].WithNullableAnnotation(NullableAnnotation.None);
 
-        //        if (configurationType is null || configurationType.SpecialType == SpecialType.System_Object)
-        //        {
-        //            continue;
-        //        }
+                if (configurationType is null || configurationType.SpecialType == SpecialType.System_Object)
+                {
+                    continue;
+                }
 
-        //        configTypes.Add(configurationType.AsType(metadataLoadContext));
-        //    }
-        //}
+                configTypes.Add(configurationType.AsType(metadataLoadContext));
+            }
+        }
 
         private void GenerateConfigurationBind(WellKnownTypes wellKnownTypes, CodeWriter writer, Type type, Queue<Type> dependentTypes)
         {
@@ -472,7 +461,7 @@ namespace Configuration.SourceGenerator
         {
             public List<InvocationExpressionSyntax> BindCalls { get; } = new();
             public List<InvocationExpressionSyntax> GetCalls { get; } = new();
-            public List<(InvocationExpressionSyntax, ExpressionSyntax)> ConfigureCalls { get; } = new();
+            public List<InvocationExpressionSyntax> ConfigureCalls { get; } = new();
 
             public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
             {
@@ -503,7 +492,7 @@ namespace Configuration.SourceGenerator
                         ArgumentList: { Arguments: { Count: 1 } configureArgs }
                     } configureCall)
                 {
-                    ConfigureCalls.Add((configureCall, configureArgs[0].Expression));
+                    ConfigureCalls.Add(configureCall);
                 }
 
                 if (syntaxNode is InvocationExpressionSyntax
